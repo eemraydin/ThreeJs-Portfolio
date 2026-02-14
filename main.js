@@ -94,6 +94,13 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.5;
 
 const loader = new GLTFLoader();
+let character = {
+  instance: null,
+  moveDistance: 10,
+  jumpHeight: 2.5,
+  isMoving: false,
+  moveDuration: 0.2,
+};
 
 loader.load(
   "./PortfolioBlender.glb",
@@ -101,6 +108,10 @@ loader.load(
     glb.scene.traverse(function (child) {
       if (intersectObjectsNames.includes(child.name)) {
         intersectObjects.push(child);
+      }
+
+      if (child.name === "Shoes") {
+        character.instance = child;
       }
 
       if (child.isMesh) {
@@ -144,14 +155,14 @@ loader.load(
 const sun = new THREE.DirectionalLight(0xffffff, 2);
 sun.castShadow = true;
 sun.position.set(-65, 250, -90);
-sun.target.position.set(-10, -20, 0);
-sun.shadow.camera.left = -350;
-sun.shadow.camera.right = 350;
-sun.shadow.camera.top = 350;
-sun.shadow.camera.bottom = -250;
+sun.target.position.set(-150, -200, 250);
+sun.shadow.camera.left = -450;
+sun.shadow.camera.right = 450;
+sun.shadow.camera.top = 450;
+sun.shadow.camera.bottom = -450;
 sun.shadow.mapSize.width = 4096;
 sun.shadow.mapSize.height = 4096;
-sun.shadow.normalBias = 0.4;
+sun.shadow.normalBias = 0.6;
 scene.add(sun);
 
 const shadowHelper = new THREE.CameraHelper(sun.shadow.camera);
@@ -208,9 +219,101 @@ function onClick() {
   }
 }
 
+function normalizeRotation(targetRotation, currentRotation) {
+  // Normalize target rotation to be within PI of current rotation
+  let diff = targetRotation - currentRotation;
+
+  while (diff > Math.PI) {
+    diff -= 2 * Math.PI;
+  }
+  while (diff < -Math.PI) {
+    diff += 2 * Math.PI;
+  }
+
+  return currentRotation + diff;
+}
+
+function moveCharacter(targetPosition, targetRotation) {
+  character.isMoving = true;
+  const normalizedRotation = normalizeRotation(
+    targetRotation,
+    character.instance.rotation.y,
+  );
+
+  const t1 = gsap.timeline({
+    onComplete: () => {
+      character.isMoving = false;
+    },
+  });
+
+  t1.to(character.instance.position, {
+    x: targetPosition.x,
+    z: targetPosition.z,
+    duration: character.moveDuration,
+  });
+  t1.to(
+    character.instance.rotation,
+    {
+      y: normalizedRotation,
+      duration: character.moveDuration,
+    },
+    0,
+  );
+
+  t1.to(
+    character.instance.position,
+    {
+      y: character.instance.position.y + character.jumpHeight,
+
+      duration: character.moveDuration / 2,
+      yoyo: true,
+      repeat: 1,
+    },
+    0,
+  );
+}
+
+function onKeyDown(event) {
+  if (event.key === "Escape") {
+    document.querySelector(".modal").classList.add("hidden");
+  }
+
+  if (character.isMoving) return; // Prevent new movement if already moving
+
+  const targetPosition = new THREE.Vector3().copy(character.instance.position);
+  let targetRotation = character.instance.rotation.y;
+
+  switch (event.key.toLowerCase()) {
+    case "w":
+    case "arrowup":
+      targetPosition.x += character.moveDistance;
+      targetRotation = -Math.PI / 2; // Face forward
+      break;
+    case "s":
+    case "arrowdown":
+      targetPosition.x -= character.moveDistance;
+      targetRotation = Math.PI / 2; // Face backward
+      break;
+    case "a":
+    case "arrowleft":
+      targetPosition.z -= character.moveDistance;
+      targetRotation = 0; // Face left
+      break;
+    case "d":
+    case "arrowright":
+      targetPosition.z += character.moveDistance;
+      targetRotation = Math.PI; // Face right
+      break;
+    default:
+      return; // Exit if it's not a key we're interested in
+  }
+  moveCharacter(targetPosition, targetRotation);
+}
+
 window.addEventListener("pointermove", handlePointerMove);
 window.addEventListener("resize", handleResize);
 window.addEventListener("click", onClick);
+window.addEventListener("keydown", onKeyDown);
 
 function animate() {
   raycaster.setFromCamera(pointer, camera);
