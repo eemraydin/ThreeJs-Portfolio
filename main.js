@@ -6,8 +6,78 @@ const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
+// Direct links (no modal)
+const directLinks = {
+  Scene: "https://www.example.com",
+};
+
+// Model content for the modal
+
+const modelContent = {
+  Advertise: {
+    title: "Advertisement",
+    content: "This is Advertise",
+    link: "https://www.behance.net/emreaydn37",
+  },
+  Project_1: {
+    title: "Project One",
+    content: "This is Project one",
+    link: "https://www.behance.net/emreaydn37",
+  },
+  Project_2: {
+    title: "Project Two",
+    content: "This is Project two",
+    link: "https://www.behance.net/emreaydn37",
+  },
+  Shoes: {
+    title: "About Me",
+    content:
+      "I am a Full stack Developer and 3D designer with a passion for creating immersive and visually stunning experiences. With a background in Software Engineering, I specialize in crafting detailed 3D models, animations, and interactive environments. My work is driven by a desire to push the boundaries of creativity and innovation, blending vision with technical expertise to bring ideas to life in the digital realm.",
+  },
+};
+
+const modelTitle = document.querySelector(".modal-title");
+const modelDescription = document.querySelector(".modal-project-description");
+const modelVisitButton = document.querySelector(".modal-project-visit-button");
+const modelExitButton = document.querySelector(".modal-exit-button");
+
+function openModal(model) {
+  const content = modelContent[model];
+
+  // Check if content exists for this model
+  if (!content) {
+    console.log("No content defined for:", model);
+    return;
+  }
+
+  modelTitle.textContent = content.title;
+  modelDescription.textContent = content.content;
+  document.querySelector(".modal").classList.remove("hidden");
+
+  if (content.link) {
+    modelVisitButton.style.display = "flex";
+    modelVisitButton.onclick = () => {
+      window.open(content.link, "_blank");
+    };
+  } else {
+    modelVisitButton.style.display = "none";
+  }
+}
+modelExitButton.addEventListener("click", () => {
+  document.querySelector(".modal").classList.add("hidden");
+});
+
+// Model ends
+
+let intersectObject = null;
 const intersectObjects = [];
-const intersectObjectsNames = ["Shoes", "Advertise", "Project 1", "Project 2"];
+const intersectObjectsNames = [
+  "Advertise",
+  "Project_1",
+  "Project_2",
+  "Text002",
+  "Shoes",
+];
 
 const canvas = document.getElementById("experience-canvas");
 const sizes = {
@@ -125,20 +195,40 @@ function handlePointerMove(event) {
   const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
   pointer.set(mouseX, mouseY);
 }
+
+function onClick() {
+  if (intersectObject !== null) {
+    // Check if it's a direct link first
+    if (directLinks[intersectObject]) {
+      document.body.style.cursor = "pointer";
+      window.open(directLinks[intersectObject], "_blank");
+    } else {
+      openModal(intersectObject);
+    }
+  }
+}
+
 window.addEventListener("pointermove", handlePointerMove);
+window.addEventListener("resize", handleResize);
+window.addEventListener("click", onClick);
 
 function animate() {
   raycaster.setFromCamera(pointer, camera);
 
   const intersects = raycaster.intersectObjects(intersectObjects);
 
+  if (intersects.length > 0) {
+    document.body.style.cursor = "pointer";
+  } else {
+    document.body.style.cursor = "default";
+    intersectObject = null;
+  }
+
   for (let i = 0; i < intersects.length; i++) {
-    console.log(intersects);
+    intersectObject = intersects[0].object.parent.name;
   }
 
   renderer.render(scene, camera);
   controls.update();
 }
 renderer.setAnimationLoop(animate);
-
-window.addEventListener("resize", handleResize);
