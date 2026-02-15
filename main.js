@@ -315,6 +315,19 @@ scene.add(sun);
 
 const light = new THREE.AmbientLight(0x404040, 4);
 scene.add(light);
+
+// Initialize lights based on initial theme (without animation)
+if (isInitiallyDark) {
+  light.color.setRGB(1.0, 1.0, 1.0);
+  light.intensity = 0.8;
+  sun.intensity = 1;
+  sun.color.setRGB(1.0, 1.0, 1.0);
+} else {
+  light.color.setRGB(0.25, 0.31, 0.78);
+  light.intensity = 0.9;
+  sun.intensity = 0.8;
+  sun.color.setRGB(0.25, 0.41, 0.88);
+}
 const frustumSize = 70;
 const aspect = sizes.width / sizes.height;
 const camera = new THREE.OrthographicCamera(
@@ -350,8 +363,19 @@ function handleResize() {
 }
 
 function handlePointerMove(event) {
-  const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-  const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+  let clientX, clientY;
+  
+  // Handle both mouse and touch events
+  if (event.touches && event.touches.length > 0) {
+    clientX = event.touches[0].clientX;
+    clientY = event.touches[0].clientY;
+  } else {
+    clientX = event.clientX;
+    clientY = event.clientY;
+  }
+  
+  const mouseX = (clientX / window.innerWidth) * 2 - 1;
+  const mouseY = -(clientY / window.innerHeight) * 2 + 1;
   pointer.set(mouseX, mouseY);
 }
 
@@ -618,8 +642,10 @@ window.addEventListener("blur", () => {
 });
 
 window.addEventListener("pointermove", handlePointerMove);
+window.addEventListener("touchmove", handlePointerMove, false);
 window.addEventListener("resize", handleResize);
 window.addEventListener("click", onClick);
+window.addEventListener("touchend", onClick);
 window.addEventListener("keydown", onKeyDown);
 
 function animate() {
