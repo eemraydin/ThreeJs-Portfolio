@@ -33,6 +33,12 @@ A fully interactive, isometric 3D portfolio built with Three.js and vanilla Java
 
 ---
 
+Screen Shots:
+
+## Preview
+
+![Portfolio Preview](Screenshot)
+
 ## Getting Started
 
 ### Prerequisites
