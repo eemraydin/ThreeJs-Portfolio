@@ -5,6 +5,7 @@ import { Capsule } from "three/addons/math/Capsule.js";
 import { Octree } from "three/addons/math/Octree.js";
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff); // Initial white background
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -71,6 +72,109 @@ modelExitButton.addEventListener("click", () => {
 
 // Model ends
 
+// Dark Mode Toggle
+const darkModeToggle = document.getElementById("darkModeToggle");
+
+// Check for saved theme preference or default to light
+const savedTheme = localStorage.getItem("theme") || "light-theme";
+document.body.classList.add(savedTheme);
+
+// Set initial icon and scene based on saved theme
+const isInitiallyDark = savedTheme === "dark-theme";
+if (isInitiallyDark) {
+  darkModeToggle.textContent = "☀️";
+  scene.background = new THREE.Color(0x1a1a1a);
+} else {
+  darkModeToggle.textContent = "🌙";
+  scene.background = new THREE.Color(0xffffff);
+}
+
+// Connect button to toggleTheme function
+darkModeToggle.addEventListener("click", () => {
+  // Toggle classes FIRST before animations
+  document.body.classList.toggle("dark-theme");
+  document.body.classList.toggle("light-theme");
+  
+  // Now call toggleTheme which will see the new state
+  toggleTheme();
+  
+  // Save theme preference
+  const currentTheme = document.body.classList.contains("dark-theme") 
+    ? "dark-theme" 
+    : "light-theme";
+  localStorage.setItem("theme", currentTheme);
+  
+  // Update scene background
+  const isDark = currentTheme === "dark-theme";
+  scene.background = new THREE.Color(isDark ? 0x1a1a1a : 0xffffff);
+});
+
+function toggleTheme() {
+  // Play sound if available
+  if (typeof isMuted !== 'undefined' && !isMuted && typeof playSound === 'function') {
+    playSound("projectsSFX");
+  }
+  
+  const isDarkTheme = document.body.classList.contains("dark-theme");
+
+  // Toggle emoji icon
+  darkModeToggle.textContent = isDarkTheme ? "☀️" : "🌙";
+
+  gsap.to(light.color, {
+    r: isDarkTheme ? 1.0 : 0.25,
+    g: isDarkTheme ? 1.0 : 0.31,
+    b: isDarkTheme ? 1.0 : 0.78,
+    duration: 1,
+    ease: "power2.inOut",
+  });
+
+  gsap.to(light, {
+    intensity: isDarkTheme ? 0.8 : 0.9,
+    duration: 1,
+    ease: "power2.inOut",
+  });
+
+  gsap.to(sun, {
+    intensity: isDarkTheme ? 1 : 0.8,
+    duration: 1,
+    ease: "power2.inOut",
+  });
+
+  gsap.to(sun.color, {
+    r: isDarkTheme ? 1.0 : 0.25,
+    g: isDarkTheme ? 1.0 : 0.41,
+    b: isDarkTheme ? 1.0 : 0.88,
+    duration: 1,
+    ease: "power2.inOut",
+  });
+}
+// Loading the model and setting up the scene
+const loadingScreen = document.getElementById("loadingScreen");
+const loadingText = document.querySelector(".loading-text");
+
+const manager = new THREE.LoadingManager();
+
+manager.onLoad = function () {
+  const t1 = gsap.timeline();
+
+  t1.to(loadingText, {
+    opacity: 0,
+    duration: 1,
+  });
+
+  t1.to(
+    loadingScreen,
+    {
+      opacity: 0,
+      duration: 1,
+      onComplete: () => {
+        loadingScreen.style.display = "none";
+      },
+    },
+    "-=0.5",
+  );
+};
+
 let intersectObject = null;
 const intersectObjects = [];
 const intersectObjectsNames = [
@@ -134,10 +238,10 @@ let playerOnGround = false;
 let playerVelocity = new THREE.Vector3();
 let targetRotation = -Math.PI / 2;
 
-const loader = new GLTFLoader();
+const loader = new GLTFLoader(manager);
 
 loader.load(
-  "./portfolioV5.glb",
+  "./portfolioV6.glb",
   function (glb) {
     glb.scene.traverse(function (child) {
       if (intersectObjectsNames.includes(child.name)) {
@@ -392,6 +496,127 @@ function onKeyDown(event) {
   character.isMoving = true;
 }
 
+// Mobile controls
+const mobileControls = {
+  up: document.querySelector(".mobile-control.up-arrow"),
+  left: document.querySelector(".mobile-control.left-arrow"),
+  right: document.querySelector(".mobile-control.right-arrow"),
+  down: document.querySelector(".mobile-control.down-arrow"),
+};
+
+const pressedButtons = {
+  up: false,
+  left: false,
+  right: false,
+  down: false,
+};
+
+function handleJumpAnimation() {
+  if (!character.instance || !character.isMoving) return;
+
+  const jumpDuration = 0.5;
+  const jumpHeight = 2;
+
+  const t1 = gsap.timeline();
+
+  t1.to(character.instance.scale, {
+    x: 1.08,
+    y: 0.9,
+    z: 1.08,
+    duration: jumpDuration * 0.2,
+    ease: "power2.out",
+  });
+
+  t1.to(character.instance.scale, {
+    x: 0.92,
+    y: 1.1,
+    z: 0.92,
+    duration: jumpDuration * 0.3,
+    ease: "power2.out",
+  });
+
+  t1.to(character.instance.scale, {
+    x: 1,
+    y: 1,
+    z: 1,
+    duration: jumpDuration * 0.3,
+    ease: "power1.inOut",
+  });
+
+  t1.to(character.instance.scale, {
+    x: 1,
+    y: 1,
+    z: 1,
+    duration: jumpDuration * 0.2,
+  });
+}
+
+function handleContinuousMovement() {
+  if (!character.instance) return;
+
+  if (
+    Object.values(pressedButtons).some((pressed) => pressed) &&
+    !character.isMoving
+  ) {
+    if (pressedButtons.up) {
+      playerVelocity.x += MOVE_SPEED;
+      targetRotation = -Math.PI / 2;
+    }
+    if (pressedButtons.down) {
+      playerVelocity.x -= MOVE_SPEED;
+      targetRotation = Math.PI / 2;
+    }
+    if (pressedButtons.left) {
+      playerVelocity.z -= MOVE_SPEED;
+      targetRotation = 0;
+    }
+    if (pressedButtons.right) {
+      playerVelocity.z += MOVE_SPEED;
+      targetRotation = Math.PI;
+    }
+
+    playerVelocity.y = JUMP_HEIGHT;
+    character.isMoving = true;
+    handleJumpAnimation();
+  }
+}
+
+Object.entries(mobileControls).forEach(([direction, element]) => {
+  element.addEventListener("touchstart", (e) => {
+//     e.preventDefault();
+    pressedButtons[direction] = true;
+  });
+
+  element.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    pressedButtons[direction] = false;
+  });
+
+  element.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    pressedButtons[direction] = true;
+  });
+
+  element.addEventListener("mouseup", (e) => {
+    e.preventDefault();
+    pressedButtons[direction] = false;
+  });
+
+  element.addEventListener("mouseleave", (e) => {
+    pressedButtons[direction] = false;
+  });
+
+  element.addEventListener("touchcancel", (e) => {
+    pressedButtons[direction] = false;
+  });
+});
+
+window.addEventListener("blur", () => {
+  Object.keys(pressedButtons).forEach((key) => {
+    pressedButtons[key] = false;
+  });
+});
+
 window.addEventListener("pointermove", handlePointerMove);
 window.addEventListener("resize", handleResize);
 window.addEventListener("click", onClick);
@@ -399,6 +624,7 @@ window.addEventListener("keydown", onKeyDown);
 
 function animate() {
   updatePlayer();
+  handleContinuousMovement();
   if (character.instance) {
     const targetCameraPosition = new THREE.Vector3(
       character.instance.position.x + cameraOffset.x,
@@ -408,7 +634,7 @@ function animate() {
     camera.position.copy(targetCameraPosition);
     camera.lookAt(
       character.instance.position.x,
-      camera.position.y -350,
+      camera.position.y - 350,
       character.instance.position.z,
     );
   }
@@ -429,6 +655,6 @@ function animate() {
   }
 
   renderer.render(scene, camera);
-//   controls.update();
+  //   controls.update();
 }
 renderer.setAnimationLoop(animate);
