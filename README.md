@@ -2,7 +2,7 @@
 
 A fully interactive, isometric 3D portfolio built with Three.js and vanilla JavaScript. Navigate a custom 3D world with a character you control, click on objects to open project modals, and toggle between light and dark themes — all rendered live in the browser.
 
-**[Live Demo →]([https://emres-portfolio.vercel.app/))**
+**[Live Demo →](https://emres-portfolio.vercel.app/)**
 
 ---
 
