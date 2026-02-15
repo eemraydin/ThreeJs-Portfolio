@@ -616,7 +616,7 @@ function handleContinuousMovement() {
 
 Object.entries(mobileControls).forEach(([direction, element]) => {
   element.addEventListener("touchstart", (e) => {
-//     e.preventDefault();
+    e.preventDefault();
     pressedButtons[direction] = true;
   });
 
