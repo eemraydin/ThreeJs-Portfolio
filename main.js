@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { Capsule } from "three/addons/math/Capsule.js";
+import { Octree } from "three/addons/math/Octree.js";
 
 const scene = new THREE.Scene();
 const raycaster = new THREE.Raycaster();
@@ -29,7 +31,7 @@ const modelContent = {
     content: "This is Project two",
     link: "https://www.behance.net/emreaydn37",
   },
-  Shoes: {
+  Character: {
     title: "About Me",
     content:
       "I am a Full stack Developer and 3D designer with a passion for creating immersive and visually stunning experiences. With a background in Software Engineering, I specialize in crafting detailed 3D models, animations, and interactive environments. My work is driven by a desire to push the boundaries of creativity and innovation, blending vision with technical expertise to bring ideas to life in the digital realm.",
@@ -75,9 +77,11 @@ const intersectObjectsNames = [
   "Advertise",
   "Project_1",
   "Project_2",
-  "Text002",
-  "Shoes",
+  "ClickHereText",
+  "Character",
 ];
+
+// Physics and character movement
 
 const canvas = document.getElementById("experience-canvas");
 const sizes = {
@@ -93,25 +97,65 @@ renderer.shadowMap.enabled = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.5;
 
-const loader = new GLTFLoader();
+const GRAVITY = 50;
+const CAPSULE_RADIUS = 2;
+const CAPSULE_HEIGHT = 10;
+const JUMP_HEIGHT = 20;
+const MOVE_SPEED = 25;
+
 let character = {
   instance: null,
-  moveDistance: 10,
-  jumpHeight: 2.5,
   isMoving: false,
-  moveDuration: 0.2,
+  spawnPosition: new THREE.Vector3(),
 };
 
+function respawnCharacter() {
+  playerCollider.start
+    .copy(character.spawnPosition)
+    .add(new THREE.Vector3(0, CAPSULE_RADIUS, 0));
+  playerCollider.end
+    .copy(character.spawnPosition)
+    .add(new THREE.Vector3(0, CAPSULE_HEIGHT, 0));
+  playerVelocity.set(0, 0, 0);
+  character.instance.position.copy(character.spawnPosition);
+  character.isMoving = false;
+  playerVelocity.set(0, 0, 0);
+  targetRotation = -Math.PI / 2;
+}
+
+const colliderOctree = new Octree();
+const playerCollider = new Capsule(
+  new THREE.Vector3(0, CAPSULE_RADIUS, 0),
+  new THREE.Vector3(0, CAPSULE_HEIGHT, 0),
+  CAPSULE_RADIUS,
+);
+
+let playerOnGround = false;
+let playerVelocity = new THREE.Vector3();
+let targetRotation = -Math.PI / 2;
+
+const loader = new GLTFLoader();
+
 loader.load(
-  "./PortfolioBlender.glb",
+  "./portfolioV5.glb",
   function (glb) {
     glb.scene.traverse(function (child) {
       if (intersectObjectsNames.includes(child.name)) {
         intersectObjects.push(child);
       }
-
-      if (child.name === "Shoes") {
+      if (child.name === "Character") {
+        character.spawnPosition.copy(child.position);
         character.instance = child;
+        playerCollider.start
+          .copy(child.position)
+          .add(new THREE.Vector3(0, CAPSULE_RADIUS, 0));
+        playerCollider.end
+          .copy(child.position)
+          .add(new THREE.Vector3(0, CAPSULE_HEIGHT, 0));
+      }
+      if (child.name === "Collider") {
+        colliderOctree.fromGraphNode(child);
+        child.visible = false;
       }
 
       if (child.isMesh) {
@@ -140,7 +184,7 @@ loader.load(
         if (child.material.name === "Roads") {
           child.material.metalness = 0.6;
           child.material.roughness = 2;
-          child.material.color = new THREE.Color("#a4880a");
+          child.material.color = new THREE.Color("#b4570c");
         }
       }
     });
@@ -152,23 +196,19 @@ loader.load(
   },
 );
 
-const sun = new THREE.DirectionalLight(0xffffff, 2);
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
 sun.castShadow = true;
-sun.position.set(-65, 250, -90);
-sun.target.position.set(-150, -200, 250);
+sun.position.set(-65, 200, -160);
+sun.target.position.set(50, 50, 0);
 sun.shadow.camera.left = -450;
 sun.shadow.camera.right = 450;
 sun.shadow.camera.top = 450;
 sun.shadow.camera.bottom = -450;
 sun.shadow.mapSize.width = 4096;
 sun.shadow.mapSize.height = 4096;
-sun.shadow.normalBias = 0.6;
+sun.shadow.normalBias = 0.5;
 scene.add(sun);
 
-const shadowHelper = new THREE.CameraHelper(sun.shadow.camera);
-scene.add(shadowHelper);
-const helper = new THREE.DirectionalLightHelper(sun, 5);
-scene.add(helper);
 const light = new THREE.AmbientLight(0x404040, 4);
 scene.add(light);
 const frustumSize = 70;
@@ -182,12 +222,16 @@ const camera = new THREE.OrthographicCamera(
   1000,
 );
 scene.add(camera);
+
+const cameraOffset = new THREE.Vector3(-280, 390, -300);
+camera.zoom = 1;
+camera.updateProjectionMatrix();
 camera.position.set(-130, 41, -315);
 
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.update();
-controls.target.set(50, -150, -100); // explicitly set what the camera looks at
+// const controls = new OrbitControls(camera, canvas);
+// controls.enableDamping = true;
+// controls.update();
+// controls.target.set(50, -150, -100); // explicitly set what the camera looks at
 
 function handleResize() {
   sizes.width = window.innerWidth;
@@ -219,57 +263,89 @@ function onClick() {
   }
 }
 
-function normalizeRotation(targetRotation, currentRotation) {
-  // Normalize target rotation to be within PI of current rotation
-  let diff = targetRotation - currentRotation;
+// function moveCharacter(targetPosition, targetRotation) {
+//   character.isMoving = true;
+//   const normalizedRotation = normalizeRotation(
+//     targetRotation,
+//     character.instance.rotation.y,
+//   );
 
-  while (diff > Math.PI) {
-    diff -= 2 * Math.PI;
-  }
-  while (diff < -Math.PI) {
-    diff += 2 * Math.PI;
-  }
+//   const t1 = gsap.timeline({
+//     onComplete: () => {
+//       character.isMoving = false;
+//     },
+//   });
 
-  return currentRotation + diff;
+//   t1.to(character.instance.position, {
+//     x: targetPosition.x,
+//     z: targetPosition.z,
+//     duration: character.moveDuration,
+//   });
+//   t1.to(
+//     character.instance.rotation,
+//     {
+//       y: normalizedRotation,
+//       duration: character.moveDuration,
+//     },
+//     0,
+//   );
+
+//   t1.to(
+//     character.instance.position,
+//     {
+//       y: character.instance.position.y + character.jumpHeight,
+
+//       duration: character.moveDuration / 2,
+//       yoyo: true,
+//       repeat: 1,
+//     },
+//     0,
+//   );
+// }
+
+function playerCollisions() {
+  const result = colliderOctree.capsuleIntersect(playerCollider);
+  playerOnGround = false;
+
+  if (result) {
+    playerOnGround = result.normal.y > 0;
+    playerCollider.translate(result.normal.multiplyScalar(result.depth));
+
+    if (playerOnGround) {
+      character.isMoving = false;
+      playerVelocity.x = 0;
+      playerVelocity.z = 0;
+    }
+  }
 }
 
-function moveCharacter(targetPosition, targetRotation) {
-  character.isMoving = true;
-  const normalizedRotation = normalizeRotation(
-    targetRotation,
+function updatePlayer() {
+  if (!character.instance) return;
+
+  if (!playerOnGround) {
+    playerVelocity.y -= GRAVITY * 0.035; // Apply gravity
+  }
+
+  if (character.instance.position.y < -50) {
+    respawnCharacter();
+  }
+
+  playerCollider.translate(playerVelocity.clone().multiplyScalar(0.035)); // Move player
+  playerCollisions();
+
+  character.instance.position.copy(playerCollider.start);
+
+  let rotationDiff =
+    ((((targetRotation - character.instance.rotation.y) % (2 * Math.PI)) +
+      3 * Math.PI) %
+      (2 * Math.PI)) -
+    Math.PI;
+  let finalRotation = character.instance.rotation.y + rotationDiff;
+
+  character.instance.rotation.y = THREE.MathUtils.lerp(
     character.instance.rotation.y,
-  );
-
-  const t1 = gsap.timeline({
-    onComplete: () => {
-      character.isMoving = false;
-    },
-  });
-
-  t1.to(character.instance.position, {
-    x: targetPosition.x,
-    z: targetPosition.z,
-    duration: character.moveDuration,
-  });
-  t1.to(
-    character.instance.rotation,
-    {
-      y: normalizedRotation,
-      duration: character.moveDuration,
-    },
-    0,
-  );
-
-  t1.to(
-    character.instance.position,
-    {
-      y: character.instance.position.y + character.jumpHeight,
-
-      duration: character.moveDuration / 2,
-      yoyo: true,
-      repeat: 1,
-    },
-    0,
+    finalRotation,
+    0.2,
   );
 }
 
@@ -280,34 +356,40 @@ function onKeyDown(event) {
 
   if (character.isMoving) return; // Prevent new movement if already moving
 
-  const targetPosition = new THREE.Vector3().copy(character.instance.position);
-  let targetRotation = character.instance.rotation.y;
+  //   const targetPosition = new THREE.Vector3().copy(character.instance.position);
+  //   let targetRotation = character.instance.rotation.y;
+
+  if (event.code.toLowerCase() === "keyr") {
+    respawnCharacter();
+    return;
+  }
 
   switch (event.key.toLowerCase()) {
     case "w":
     case "arrowup":
-      targetPosition.x += character.moveDistance;
-      targetRotation = -Math.PI / 2; // Face forward
+      playerVelocity.z += MOVE_SPEED;
+      targetRotation = Math.PI; // Face forward
       break;
     case "s":
     case "arrowdown":
-      targetPosition.x -= character.moveDistance;
-      targetRotation = Math.PI / 2; // Face backward
+      playerVelocity.z -= MOVE_SPEED;
+      targetRotation = 0; // Face backward
       break;
     case "a":
     case "arrowleft":
-      targetPosition.z -= character.moveDistance;
-      targetRotation = 0; // Face left
+      playerVelocity.x += MOVE_SPEED;
+      targetRotation = -Math.PI / 2; // Face left
       break;
     case "d":
     case "arrowright":
-      targetPosition.z += character.moveDistance;
-      targetRotation = Math.PI; // Face right
+      playerVelocity.x -= MOVE_SPEED;
+      targetRotation = +Math.PI / 2; // Face right
       break;
     default:
       return; // Exit if it's not a key we're interested in
   }
-  moveCharacter(targetPosition, targetRotation);
+  playerVelocity.y = JUMP_HEIGHT; // Add jump velocity
+  character.isMoving = true;
 }
 
 window.addEventListener("pointermove", handlePointerMove);
@@ -316,6 +398,21 @@ window.addEventListener("click", onClick);
 window.addEventListener("keydown", onKeyDown);
 
 function animate() {
+  updatePlayer();
+  if (character.instance) {
+    const targetCameraPosition = new THREE.Vector3(
+      character.instance.position.x + cameraOffset.x,
+      cameraOffset.y,
+      character.instance.position.z + cameraOffset.z,
+    );
+    camera.position.copy(targetCameraPosition);
+    camera.lookAt(
+      character.instance.position.x,
+      camera.position.y -350,
+      character.instance.position.z,
+    );
+  }
+
   raycaster.setFromCamera(pointer, camera);
 
   const intersects = raycaster.intersectObjects(intersectObjects);
@@ -332,6 +429,6 @@ function animate() {
   }
 
   renderer.render(scene, camera);
-  controls.update();
+//   controls.update();
 }
 renderer.setAnimationLoop(animate);
