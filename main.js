@@ -43,6 +43,9 @@ const modelTitle = document.querySelector(".modal-title");
 const modelDescription = document.querySelector(".modal-project-description");
 const modelVisitButton = document.querySelector(".modal-project-visit-button");
 const modelExitButton = document.querySelector(".modal-exit-button");
+const modal = document.querySelector(".modal");
+
+let touchHappened = false;
 
 function openModal(model) {
   const content = modelContent[model];
@@ -55,19 +58,29 @@ function openModal(model) {
 
   modelTitle.textContent = content.title;
   modelDescription.textContent = content.content;
-  document.querySelector(".modal").classList.remove("hidden");
+  modal.classList.remove("hidden");
 
   if (content.link) {
     modelVisitButton.style.display = "flex";
-    modelVisitButton.onclick = () => {
+    modelVisitButton.onclick = (e) => {
+      e.stopPropagation();
       window.open(content.link, "_blank");
     };
   } else {
     modelVisitButton.style.display = "none";
   }
 }
-modelExitButton.addEventListener("click", () => {
-  document.querySelector(".modal").classList.add("hidden");
+
+function hideModal() {
+  modal.classList.add("hidden");
+}
+modelExitButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  modal.classList.add("hidden");
+});
+
+modelVisitButton.addEventListener("click", (e) => {
+  e.stopPropagation();
 });
 
 // Model ends
@@ -362,25 +375,15 @@ function handleResize() {
   renderer.setSize(sizes.width, sizes.height);
 }
 
-function handlePointerMove(event) {
-  let clientX, clientY;
-  
-  // Handle both mouse and touch events
-  if (event.touches && event.touches.length > 0) {
-    clientX = event.touches[0].clientX;
-    clientY = event.touches[0].clientY;
-  } else {
-    clientX = event.clientX;
-    clientY = event.clientY;
-  }
-  
-  const mouseX = (clientX / window.innerWidth) * 2 - 1;
-  const mouseY = -(clientY / window.innerHeight) * 2 + 1;
-  pointer.set(mouseX, mouseY);
-}
 
-function onClick() {
-  // Do raycasting at the moment of click to get accurate intersection
+
+function handleInteraction() {
+  // Don't interact if modal is open
+  if (!modal.classList.contains("hidden")) {
+    return;
+  }
+
+  // Do raycasting at the moment of interaction
   raycaster.setFromCamera(pointer, camera);
   const intersects = raycaster.intersectObjects(intersectObjects);
   
@@ -398,6 +401,31 @@ function onClick() {
       openModal(clickedObject);
     }
   }
+}
+
+function onClick() {
+  // Prevent double-triggering from both click and touchend
+  if (touchHappened) return;
+  handleInteraction();
+}
+
+function onMouseMove(event) {
+  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  touchHappened = false;
+}
+
+function onTouchEnd(event) {
+  if (event.touches && event.touches.length > 0) {
+    pointer.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+  } else {
+    pointer.x = (event.changedTouches[0].clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(event.changedTouches[0].clientY / window.innerHeight) * 2 + 1;
+  }
+
+  touchHappened = true;
+  handleInteraction();
 }
 
 // function moveCharacter(targetPosition, targetRotation) {
@@ -650,11 +678,10 @@ window.addEventListener("blur", () => {
   });
 });
 
-window.addEventListener("pointermove", handlePointerMove);
-window.addEventListener("touchmove", handlePointerMove, false);
 window.addEventListener("resize", handleResize);
-window.addEventListener("click", onClick);
-window.addEventListener("touchend", onClick);
+window.addEventListener("click", onClick, { passive: false });
+window.addEventListener("mousemove", onMouseMove);
+window.addEventListener("touchend", onTouchEnd, { passive: false });
 window.addEventListener("keydown", onKeyDown);
 
 function animate() {
