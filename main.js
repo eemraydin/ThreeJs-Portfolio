@@ -77,11 +77,11 @@ const darkModeToggle = document.getElementById("darkModeToggle");
 
 // Check for saved theme preference or default to light
 const savedTheme = localStorage.getItem("theme") || "light-theme";
-document.body.classList.add(savedTheme);
-
-// Set initial icon and scene based on saved theme
 const isInitiallyDark = savedTheme === "dark-theme";
+
+// Only add dark-theme class if dark, light is the CSS default
 if (isInitiallyDark) {
+  document.body.classList.add("dark-theme");
   darkModeToggle.textContent = "☀️";
   scene.background = new THREE.Color(0x1a1a1a);
 } else {
@@ -380,13 +380,22 @@ function handlePointerMove(event) {
 }
 
 function onClick() {
-  if (intersectObject !== null) {
+  // Do raycasting at the moment of click to get accurate intersection
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(intersectObjects);
+  
+  let clickedObject = null;
+  if (intersects.length > 0) {
+    clickedObject = intersects[0].object.parent.name;
+  }
+  
+  if (clickedObject !== null) {
     // Check if it's a direct link first
-    if (directLinks[intersectObject]) {
+    if (directLinks[clickedObject]) {
       document.body.style.cursor = "pointer";
-      window.open(directLinks[intersectObject], "_blank");
+      window.open(directLinks[clickedObject], "_blank");
     } else {
-      openModal(intersectObject);
+      openModal(clickedObject);
     }
   }
 }
