@@ -37,7 +37,7 @@ Screen Shots:
 
 ## Preview
 
-![Portfolio Preview](Screenshot/Screenshot 2026-02-14 at 8.26.23 PM.png)
+![Portfolio Preview](Screenshot/Screenshot1.png)
 
 ## Getting Started
 
