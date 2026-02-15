@@ -11,7 +11,7 @@ const pointer = new THREE.Vector2();
 
 // Direct links (no modal)
 const directLinks = {
-  Scene: "https://www.example.com",
+  Scene: "https://github.com/eemraydin",
 };
 
 // Model content for the modal
@@ -20,17 +20,17 @@ const modelContent = {
   Advertise: {
     title: "Advertisement",
     content: "This is Advertise",
-    link: "https://www.behance.net/emreaydn37",
+    link: "https://github.com/eemraydin",
   },
   Project_1: {
     title: "Project One",
     content: "This is Project one",
-    link: "https://www.behance.net/emreaydn37",
+    link: "https://github.com/eemraydin",
   },
   Project_2: {
     title: "Project Two",
     content: "This is Project two",
-    link: "https://www.behance.net/emreaydn37",
+    link: "https://github.com/eemraydin",
   },
   Character: {
     title: "About Me",
